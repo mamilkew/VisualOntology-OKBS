@@ -15,6 +15,23 @@ class RepositoryAdmin(admin.ModelAdmin):
 
 
 # ==========start customizing for Node-link configuration
+class PropertyAutoComplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return Property.objects.none()
+
+        qs = Property.objects.none()
+
+        domain_subject = self.forwarded.get('domain_subject', None)
+        if domain_subject:
+            qs = Property.objects.filter(domain_prop=domain_subject)
+
+        if self.q:
+            qs = Property.objects.filter(domain_prop=domain_subject).filter(property_path__contains=self.q)
+
+        return qs
+
+
 class ForcegraphForm(forms.ModelForm):
     faceted_search = forms.ModelMultipleChoiceField(queryset=Property.objects.all(), required=False,
                                                     widget=autocomplete.ModelSelect2Multiple(url='property_faceted',

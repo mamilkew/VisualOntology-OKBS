@@ -106,3 +106,51 @@ def make_filter_sparql(list_filter, object_var):
     if text != '':
         text += ')'
     return text
+
+
+def initial_model_api(sparql, link_query):
+    values = urlencode({'query': sparql})
+    # {'query': 'PREFIX aitslt:<http://www.semanticweb.org/milkk/ontologies/2017/11/testData#>' + sparql}
+    credentials = b64encode('admin:admin'.encode('ascii'))
+    headers = {
+        'Authorization': 'Basic %s' % credentials.decode('ascii'),
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/sparql-results+json'
+    }
+    data = values.encode('ascii')
+    request = Request(link_query, data=data, headers=headers)
+    try:
+        response_body = urlopen(request).read().decode('utf8')
+        return response_body
+    except HTTPError as e:
+        print(e.code)
+        print(e.reason)
+        print(request.__dict__)
+        response_body = {
+            "head": {
+                "vars": [
+                    "subject",
+                    "predicate",
+                    "object"
+                ]
+            },
+            "results": {
+                "bindings": [
+                    {
+                        "subject": {
+                            "type": "literal",
+                            "value": "Error"
+                        },
+                        "predicate": {
+                            "type": "literal",
+                            "value": e.code
+                        },
+                        "object": {
+                            "type": "literal",
+                            "value": e.reason
+                        }
+                    }
+                ]
+            }
+        }
+        return response_body

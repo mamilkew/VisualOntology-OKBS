@@ -67,15 +67,15 @@
 <script src="{% static 'js/bootstrap.min.js' %}"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.1/js/select2.min.js"></script>
 <script>
-    {#$(document).ready(function () {#}
-    {#    {% for each in navbarMain %}#}
-    {#        $("div.mapping").append('<a class="dropdown-item" href="{% url 'pages_forcegraph' each.id %}">{{ each.page_title }}</a>');#}
-    {#    {% endfor %}#}
-    {##}
-    {#    {% for each in navbar_timeline %}#}
-    {#        $("div.timebased").append('<a class="dropdown-item" href="{% url 'timelinegraph' each.id %}">{{ each.page_title }}</a>');#}
-    {#    {% endfor %}#}
-    {#\});#}
+    $(document).ready(function () {
+        {% for each in navbarMain %}
+            $("div.mapping").append('<a class="dropdown-item" href="{% url 'pages_forcegraph' each.id %}">{{ each.page_title }}</a>');
+        {% endfor %}
+
+        {% for each in navbar_timeline %}
+            $("div.timebased").append('<a class="dropdown-item" href="{% url 'timelinegraph' each.id %}">{{ each.page_title }}</a>');
+        {% endfor %}
+    });
 </script>
 {% block javascript %}{% endblock %}
 </body>

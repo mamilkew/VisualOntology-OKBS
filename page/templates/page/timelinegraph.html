@@ -1,0 +1,412 @@
+{% extends 'page/layout.html' %}
+{% load staticfiles %}
+{% block header %}
+    <link href="https://unpkg.com/event-drops/dist/style.css" rel="stylesheet"/>
+
+{% endblock %}
+{% block container %}
+    <div class="row">
+        <div class="col-md-3 left-faceted">
+            <br>
+            <form id="filter_facet">
+                {% csrf_token %}
+                <input type="hidden" name="subject_domain" value="{{ posts.domain_subject }}">
+                <input type="hidden" name="date_show" value="{{ dateShow }}">
+                <input type="hidden" name="link_query" value="{{ posts.repository_query.query_path }}">
+                <input type="hidden" name="prefixes_query" value="{{ filter_prefix }}">
+                <h4>Faceted Search
+                    <button class="btn btn-outline-success" type="submit">Reset</button>
+                </h4>
+                <hr>
+                <div id="accordion" class="accordion">
+                    {#        Group #iterative        #}
+                    {% for key, value in filter_facets.items %}
+                        <div class="card">
+                            <div class="card-header collapsed card-filter" id="{{ key }}" data-toggle="collapse"
+                                 data-target="#collapse{{ key }}"
+                                 aria-expanded="false" aria-controls="collapse{{ key }}">
+                                {{ value.1 }}
+                            </div>
+                            <div id="collapse{{ key }}" class="collapse card-filter-body" aria-labelledby="{{ key }}"
+                                 data-parent="#accordion">
+                                <div class="card-body">
+                                    <ul class="list-group">
+                                        <select class="jqsearchbox form-control"
+                                                name="{{ key }}" multiple="multiple" id="checked{{ key }}">
+                                            {% for k, v in value.0.items %}
+                                                {#                                            <div class="form-check">#}
+                                                {#                                                <label class="form-check-label d-block" for="checked{{ v }}">#}
+                                                {#                                                    <input class="form-check-input" type="checkbox" name="{{ key }}"#}
+                                                {#                                                       value="{{ k }}" id="checked{{ v }}"/>{{ v }}</label>#}
+
+                                                <option value="{{ k }}">{{ v }}</option>
+
+                                                {#                                            </div>#}
+                                            {% endfor %}
+                                        </select>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </form>
+        </div>
+        <div class="col-xs-12 col-md-9">
+            <div class="row">
+                <div class="col-xs-12 col-md-12">
+                    <br>
+                    <h3 class="text-center">{{ posts.page_title }}</h3>
+                    <br>
+                </div>
+            </div>
+            <div class="progress" id="progress_bar" style="display: none">
+                <div class="progress-bar" role="progressbar" style="width: 25%;" aria-valuenow="25" aria-valuemin="0"
+                     aria-valuemax="100">
+                </div>
+            </div>
+            <div id="eventdrops-demo" style="width: 100%;"></div>
+            <p class="infos text-right">
+                <span class="light">All </span><span id="numberCommits" class="text-info"></span> <span class="light">found between</span>
+                <br/>
+                <span id="zoomStart" class="text-info"></span> <span class="light">and</span> <span id="zoomEnd"
+                                                                                                    class="text-info"></span>
+            </p>
+            <div class="text-right">
+                <label class="text-info small">Domain: {{ posts.domain_subject }}</label>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+{% block javascript %}
+    <script src="https://unpkg.com/d3"></script>
+    <script src="{% static 'timeline/timeline_index.js' %}"></script>
+    {#    <script src="https://unpkg.com/event-drops"></script>#}
+
+    <script>
+        var options = {year: 'numeric', month: 'long', day: 'numeric'};
+
+        const repositories = {{ new_results | safe }};
+        repositories.forEach(function (repository, i) {
+            repositories[i] = nested_dateShow(repository, repository.date_show);
+        });
+
+        {#repositories[0].commits = result_test;#}
+        const numberCommitsContainer = document.getElementById('numberCommits');
+        const zoomStart = document.getElementById('zoomStart');
+        const zoomEnd = document.getElementById('zoomEnd');
+
+        const tooltip = d3
+            .select('body')
+            .append('div')
+            .classed('tooltip', true)
+            .style('opacity', 0)
+            .style('pointer-events', 'auto');
+
+        function updated(dateShow) {
+            const chart = eventDrops({
+                {#locale: usLocale,#}
+                d3,
+                zoom: {
+                    onZoom: () => updateCommitsInformation(chart),
+                },
+                bound: {
+                    format: d3.timeFormat('%B %d, %Y'),
+                },
+                range: {
+                    start: new Date(new Date().getTime() - 3600000 * 24 * 365 * 10), // 10 year ago
+                    {#end: new Date(),#}
+                },
+                label: {
+                    padding: 20,
+                    text: d => {
+                        var text_l = d.name.length;
+                        if (text_l > 20) {
+                            return `${d.name.slice(0, 20)}... (${d.data.length})`
+                        }
+                        else {
+                            return `${d.name} (${d.data.length})`
+                        }
+                    },
+                    width: 200,
+                },
+                {#drops: row => {#}
+                {#date: new Date(el.data[dateShow]),#}
+                {#    for (var i=0; i < row.data.length; i++) {#}
+                {#        row.data.forEach(function (obj, index) {#}
+                {#            if (i != index) {#}
+                {#                Object.keys(obj).forEach(function (key) {#}
+                {#                    if (key == dateShow) {#}
+                {#                        if (obj[key] == row.data[i][dateShow]){#}
+                {#                            console.log(i +" and " + index);#}
+                {#                            console.log(obj);#}
+                {#                            console.log(row.data[i]);#}
+                {#                            row.data[i] = [obj, row.data[i]];#}
+                {#                            console.log(row.data[i]);#}
+                {#                        }#}
+                {#                    }#}
+                {#                });#}
+                {#            }#}
+                {#        });#}
+                {#console.log(row.data[i])#}
+                {#    }#}
+                {#\},#}
+                drop: { //drops ----- Default: row => row.data
+                    date: d => new Date(d[dateShow]), //Default: d => new Date(d)
+                    onMouseOver: obj => {
+                        tooltip
+                            .transition()
+                            .duration(200)
+                            .style('opacity', 1)
+                            .style('pointer-events', 'auto');
+
+                        tooltip
+                            .html(
+                                function () {
+                                    var content = `<div class="obj"><div class="content">`;
+                                    if (obj.hasOwnProperty("commits")) {
+                                        obj.commits.forEach(function (obj_commit, index) {
+                                            content += `
+                                <div id="tooptip_accordion">
+                                  <div class="card">
+                                    <div class="card-header collapsed card-filter" id="heading${index}"  data-toggle="collapse" data-target="#collapse${index}" aria-expanded="true" aria-controls="collapse${index}">
+                                      <a class="message btn">${obj_commit.subject}</a>
+                                    </div>
+
+                                    <div id="collapse${index}" class="collapse" aria-labelledby="heading${index}" data-parent="#tooptip_accordion">
+                                      <div class="card-body">`;
+                                        Object.keys(obj_commit)
+                                            .sort()
+                                            .reverse()
+                                            .forEach(function (key, i) {
+                                               content = content + '<label class="text-success">' + key + '</label>: ' + obj_commit[key] + '</br>';
+                                            });
+                                            //for (var key in obj_commit) {
+                                            //    content = content + '<label class="text-success">' + key + '</label>: ' + obj_commit[key] + '</br>';
+                                            //}
+                                            content += `</div></div></div>`;
+                                        });
+                                        return content + '</div></div></div>';
+                                    }
+                                    else {
+
+                                        var content = `
+                        <div class="obj">
+                        <div class="content">
+                            <h4 class="message">${obj.subject}</h4>
+                                `;
+                                    Object.keys(obj)
+                                        .sort()
+                                        .reverse()
+                                        .forEach(function (key, i) {
+                                           content = content + '<label class="text-success">' + key + '</label>: ' + obj[key] + '</br>';
+                                        });
+                                        //for (var key in obj) {
+                                        //    content = content + '<label class="text-success">' + key + '</label>: ' + obj[key] + '</br>';
+                                        //}
+                                        return content + '</div></div>';
+                                    }
+                                }
+                                {#            `#}
+                                {#    <div class="obj">#}
+                                {#    <div class="content">#}
+                                {#        <h4 class="message">${obj.subject}</h4>#}
+                                {#        <p>#}
+                                {#            <a href="https://www.github.com/${obj.PJyear}" class="author">${obj.PJstatus}</a>#}
+                                {#            on <span class="date">${new Intl.DateTimeFormat('en-US', options).format(new Date(obj.PJstart))}</span> -#}
+                                {#            <a class="sha" href="${obj.isRelatedTo}">${obj.isRelatedTo.slice(0, -5)}</a>#}
+                                {#        </p>#}
+                                {#    </div>#}
+                                {#`#}
+                            )
+                            .style('left', `${d3.event.pageX - 30}px`)
+                            .style('top', `${d3.event.pageY + 20}px`);
+                    },
+                    onClick: () => {
+                        tooltip
+                            .transition()
+                            .duration(1000)
+                            .style('opacity', 0)
+                            .style('pointer-events', 'none');
+                    },
+                },
+            });
+            return chart;
+        }
+
+        const chart = updated(repositories[0].date_show);
+        const repositoriesData = repositories.map(repository => ({
+            name: repository.name,
+            data: repository.commits,
+        }));
+
+        console.log(repositories);
+        console.log(repositoriesData);
+        d3.select('#eventdrops-demo')
+            .data([repositoriesData])
+            .call(chart);
+
+        const updateCommitsInformation = chart => {
+            const filteredData = chart
+                .filteredData()
+                .reduce((total, repo) => total.concat(repo.data), []);
+            var font = "{{ posts.domain_subject }}";
+            numberCommitsContainer.textContent = repositories[0].date_show + " ({{ dateShow }}) of " + font.split('#').reverse()[0] + " (s)";
+            {#numberCommitsContainer.textContent = filteredData.length + " " + font.split('#').reverse()[0] + " (s)";#}
+            zoomStart.textContent = new Intl.DateTimeFormat('en-US', options).format(new Date(chart.scale().domain()[0]));
+            zoomEnd.textContent = new Intl.DateTimeFormat('en-US', options).format(new Date(chart.scale().domain()[1]));
+        };
+
+        updateCommitsInformation(chart);
+
+        function nested_dateShow(commits_list, date_show) {
+            commits_list.commits.forEach(function (obj_idx, idx) {
+                var check_dup = false;
+                const result_test = commits_list.commits.filter((obj, index) => {
+                    if (index > idx) {
+                        if (obj_idx.hasOwnProperty(date_show) && obj.hasOwnProperty(date_show)) {
+                            if (obj[date_show][0] == obj_idx[date_show][0]) {
+                                {#console.log(idx +" and " + index);#}
+                                {#console.log(obj_idx);#}
+                                check_dup = true;
+                                commits_list.commits[idx] = {};
+                                commits_list.commits[idx][date_show] = [obj_idx[date_show][0]];
+                                commits_list.commits[idx]["commits"] = [obj_idx];
+                            }
+                            return obj[date_show][0] == obj_idx[date_show][0];
+                        }
+                    }
+                });
+                if (check_dup) {
+                    Array.prototype.push.apply(commits_list.commits[idx]["commits"], result_test);
+                    {#commits_list.commits[idx]["data"] = commits_list.commits[idx];#}
+                    {#console.log(result_test);#}
+                    {#console.log(commits_list.commits[idx]);#}
+                }
+            });
+            return commits_list;
+        }
+
+        function categorizeData(filters, data_query, dateShow) {
+            var resultData = data_query;
+            filters.forEach(function (filter) {
+                data_query.forEach(function (data) {
+                    if (data.name === "All") {
+                        var tmp = {"name": filter, "commits": []};
+                        data.commits.forEach(function (obj, index) {
+                            Object.keys(obj).forEach(function (key) {
+                                obj[key].forEach(function (value) {
+                                    if (value === filter) {
+                                        tmp.commits.push(data.commits[index]);
+                                    }
+                                });
+
+                            });
+                        });
+                        resultData.push(tmp);
+                    }
+                });
+            });
+            resultData.forEach(function (result_i, i) {
+                resultData[i] = nested_dateShow(result_i, dateShow);
+            });
+
+
+            {#repositories[0].commits.forEach(function (obj_idx, idx) {#}
+            {#    var check_dup = false;#}
+            {#    const result_test = repositories[0].commits.filter((obj, index) => {#}
+            {#        if (index > idx) {#}
+            {#            if (obj["{{ dateShow }}"] == obj_idx["{{ dateShow }}"]){#}
+            {#                console.log(idx +" and " + index);#}
+            {#                console.log(obj_idx);#}
+            {#                check_dup = true;#}
+            {#                repositories[0].commits[idx] = {};#}
+            {#                repositories[0].commits[idx]["{{ dateShow }}"] = obj_idx["{{ dateShow }}"];#}
+            {#                repositories[0].commits[idx]["commits"] = [obj_idx];#}
+            {#            }#}
+            {#            return obj["{{ dateShow }}"] == obj_idx["{{ dateShow }}"];#}
+            {#        }#}
+            {#    });#}
+            {#    if (check_dup){#}
+            {#        Array.prototype.push.apply(repositories[0].commits[idx]["commits"], result_test);#}
+            {#repositories[0].commits[idx]["data"] = repositories[0].commits[idx];#}
+            {#        console.log(result_test);#}
+            {#        console.log(repositories[0].commits[idx]);#}
+            {#    }#}
+            {#\});#}
+
+            return resultData;
+        }
+
+        var stop_progress_running;
+        $(document).ready(function () {
+            $('div').not($('.tooltip')).click(function () {
+                tooltip.transition().duration(1000).style('opacity', 0).style('pointer-events', 'none');
+            });
+            //$("#progress_bar").hide();
+            $('.jqsearchbox').select2({placeholder: 'Select an option'});
+            $('.select2-search__field').width("100%");
+            //$("#filter_facet").submit(function (e) {
+            {#$("#filter_facet").on('change', function (e) {#}
+            $(".jqsearchbox").change(function (e) {
+                $.ajax({
+                    url: '{% url 'filter_timeline' %}',
+                    data: $('#filter_facet').serialize(),
+                    type: 'POST',
+                    beforeSend: function () {
+                        {#$("#filter_facet :input").attr("disabled", true);#}
+                        $(".jqsearchbox").prop("disabled", true);
+                        progress_running();
+                        d3.select("svg").remove();
+                    },
+                    success: function (response) {
+                        progress_stopping();
+                        $(".jqsearchbox").prop("disabled", false);
+                        {#$("#filter_facet :input").attr("disabled", false);#}
+                        $(".tooltip").html('');
+                        $(".tooltip").css({'pointer-events': 'none', 'opacity': 0});
+                        console.log(response);
+                        {#alert(response.filter_name);#}
+                        // d3.select("svg").remove();
+                        {#const repositories = response.query;#}
+                        const repositories = categorizeData(response.filter_name, response.query, response.query[0].date_show);
+                        const repositoriesData = repositories.map(repository => ({
+                            name: repository.name,
+                            data: repository.commits,
+                        }));
+                        const chart = updated(response.query[0].date_show);
+                        console.log(repositories);
+                        console.log(repositoriesData);
+                        d3.select('#eventdrops-demo')
+                            .data([repositoriesData])
+                            .call(chart);
+                        updateCommitsInformation(chart);
+                    },
+                    error: function (error) {
+                        console.log(error);
+                    }
+                });
+                e.preventDefault();
+            });
+        });
+
+        function progress_running() {
+            $(".progress-bar").css("width", 0 + "%").attr("aria-valuenow", 0).text('');
+            $("#progress_bar").show();
+            var stops = [25, 55, 85, 99];
+            $.each(stops, function (index, value) {
+                stop_progress_running = setTimeout(function () {
+                    $(".progress-bar").css("width", value + "%").attr("aria-valuenow", value).text(value + '%');
+                }, index * 300);
+            });
+
+        }
+
+        function progress_stopping() {
+            clearTimeout(stop_progress_running);
+            $(".progress-bar").css("width", 0 + "%").attr("aria-valuenow", 0).text('');
+            $("#progress_bar").hide();
+        }
+    </script>
+{% endblock %}
